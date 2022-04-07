@@ -51,19 +51,19 @@ contract("Token", function (accounts) {
     assert.equal(balanceAccount0, totalSupply - amount);
     assert.equal(balanceAccount1, amount);
   });
-});
 
-it('should fail if account dont have tokens', async () => {
-  var hasError = true;
-  try {
-    const amount = toWei(10);
-    const instance = await Token.deployed();
-    await instance.transfer(accounts[0], amount, { from: accounts[1] })
-    
-    hasError = false; // Should be unreachable
-  } catch(err) { }
-
-  assert.equal(true, hasError, "Holder do not have enough tokens");
+  it('should fail if account dont have tokens', async () => {
+    var hasError = true;
+    try {
+      const amount = toWei(10);
+      const instance = await Token.deployed();
+      await instance.transfer(accounts[0], amount, { from: accounts[1] })
+      
+      hasError = false; // Should be unreachable
+    } catch(err) { }
+  
+    assert.equal(true, hasError, "Holder do not have enough tokens");
+  });
 });
 
 function toWei(count) {
