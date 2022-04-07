@@ -15,7 +15,7 @@ contract("Token", function (accounts) {
     const instance = await Token.deployed();
     const name = await instance.name();
 
-    assert.equal(name, "THE NEXT WAR Gem");
+    assert.equal(name, "THE NEXT WAR GEM");
   });
 
   it("should return correct token symbol", async function () {
