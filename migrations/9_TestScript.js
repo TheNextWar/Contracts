@@ -5,9 +5,9 @@ const Distribution = artifacts.require("Distribution");
 
 module.exports = function (deployer, network, accounts) {
 
-	const totalSupply = ;
-	var claimableTimestamp = [];
-	var claimablePercent = [];
+	const totalSupply = 1000000000;
+	var claimableTimestamp = [1650881560, 1650881561, 1650881562, 1650881563];
+	var claimablePercent = [10000, 20000, 30000, 40000];
 
 	deployer.then(async () => {
         

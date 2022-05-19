@@ -3,14 +3,12 @@
 pragma solidity 0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract Distribution is Ownable {
-    using SafeMath for uint256;
 
     IERC20 public tngToken;
-    uint256 public constant DENOM = 100000;         // For percentage precision upto 0.00x%
+    uint256 public constant DENOM = 100000; // For percentage precision upto 0.00x%
 
     // Token vesting 
     uint256[] public claimableTimestamp;
@@ -23,6 +21,11 @@ contract Distribution is Ownable {
     uint256 public totalPendingVestingToken;    // Counter to track total required tokens
     uint256 public totalParticipants;           // Total presales participants
 
+    event Register(address[] account, uint256[] tokenAllocation);
+    event Deregister(address[] account);
+    event Claim(address user, uint256 amount);
+    event SetClaimable(uint256[] timestamp, uint256[] percent);
+
     struct Account {
         uint256 tokenAllocation;            // user's total token allocation 
         uint256 pendingTokenAllocation;     // user's pending token allocation
@@ -30,30 +33,11 @@ contract Distribution is Ownable {
         uint256 claimedTimestamp;           // user's last claimed timestamp. 0 means never claim
     }
 
-    // constructor(address _tngToken) {
-    //     tngToken = IERC20(_tngToken);
-
-    //     uint256 timeA = block.timestamp + 5 minutes;
-    //     uint256 timeB = timeA + 2 minutes;
-    //     uint256 timeC = timeB + 2 minutes;
-    //     uint256 timeD = timeC + 2 minutes;
-
-    //     // THIS PROPERTIES WILL BE SET WHEN DEPLOYING CONTRACT
-    //     claimableTimestamp = [
-    //         timeA,     // Thursday, 31 March 2022 00:00:00 UTC
-    //         timeB,     // Thursday, 30 June 2022 00:00:00 UTC       
-    //         timeC,     // Friday, 30 September 2022 00:00:00 UTC
-    //         timeD];    // Saturday, 31 December 2022 00:00:00 UTC
-
-    //     claimablePercent[timeA] = 10000;
-    //     claimablePercent[timeB] = 30000;
-    //     claimablePercent[timeC] = 30000;
-    //     claimablePercent[timeD] = 30000;
-    // }
-	
 	constructor(address _tngToken, uint256[] memory _claimableTimestamp, uint256[] memory _claimablePercent) {
         tngToken = IERC20(_tngToken);
         setClaimable(_claimableTimestamp, _claimablePercent);
+
+        emit SetClaimable(_claimableTimestamp, _claimablePercent);
     }
 
     // Register token allocation info 
@@ -79,9 +63,11 @@ contract Distribution is Ownable {
                 userAccount.pendingTokenAllocation = tokenAllocation[index];
 
                 // For tracking purposes
-                totalPendingVestingToken = totalPendingVestingToken.add(tokenAllocation[index]);
+                totalPendingVestingToken += tokenAllocation[index];
             }
         }
+
+        emit Register(account, tokenAllocation);
     }
 
     function deRegister(address[] memory account) external onlyOwner {
@@ -96,7 +82,7 @@ contract Distribution is Ownable {
                 totalParticipants--;
 
                 // For tracking purposes
-                totalPendingVestingToken = totalPendingVestingToken.sub(userAccount.pendingTokenAllocation);
+                totalPendingVestingToken -= userAccount.pendingTokenAllocation;
 
                 userAccount.tokenAllocation = 0;
                 userAccount.pendingTokenAllocation = 0;
@@ -104,6 +90,8 @@ contract Distribution is Ownable {
                 userAccount.claimedTimestamp = 0;
             }
         }
+
+        emit Deregister(account);
     }
 
     function claim() external {
@@ -121,7 +109,7 @@ contract Distribution is Ownable {
             uint256 _claimTimestamp = claimableTimestamp[index];   
             if(block.timestamp >= _claimTimestamp) {
                 claimIndex++;
-                tokenQuantity = tokenQuantity.add(tokenAllocation.mul(claimablePercent[_claimTimestamp]).div(DENOM));
+                tokenQuantity = tokenQuantity + (tokenAllocation * claimablePercent[_claimTimestamp] / DENOM);
             } else {
                 break;
             }
@@ -135,19 +123,20 @@ contract Distribution is Ownable {
         //Update user details
         userAccount.claimedTimestamp = block.timestamp;
         userAccount.claimIndex = claimIndex;
-        userAccount.pendingTokenAllocation = userAccount.pendingTokenAllocation.sub(tokenQuantity);
+        userAccount.pendingTokenAllocation = userAccount.pendingTokenAllocation - tokenQuantity;
 
         //For tracking
-        totalPendingVestingToken = totalPendingVestingToken.sub(tokenQuantity);
+        totalPendingVestingToken -= tokenQuantity;
 
         //Release token
-        tngToken.transfer(_msgSender(), tokenQuantity);
+        bool status = tngToken.transfer(_msgSender(), tokenQuantity);
+        require(status, "Failed to claim");
 
-        emit Claimed(_msgSender(), tokenQuantity);
+        emit Claim(_msgSender(), tokenQuantity);
     }
 
     // Calculate claimable tokens at current timestamp
-    function getClaimableAmount(address account) public view returns(uint256) {
+    function getClaimableAmount(address account) external view returns(uint256) {
         Account storage userAccount = accounts[account];
         uint256 tokenAllocation = userAccount.tokenAllocation;
         uint256 claimIndex = userAccount.claimIndex;
@@ -162,19 +151,13 @@ contract Distribution is Ownable {
 
             uint256 _claimTimestamp = claimableTimestamp[index];
             if(block.timestamp >= _claimTimestamp){
-                tokenQuantity = tokenQuantity.add(tokenAllocation.mul(claimablePercent[_claimTimestamp]).div(DENOM));
+                tokenQuantity = tokenQuantity + (tokenAllocation * claimablePercent[_claimTimestamp] / DENOM);
             } else {
                 break;
             }
         }
 
         return tokenQuantity;
-    }
-
-    // Update TheNextWar Gem token address
-    function setTngToken(address newAddress) external onlyOwner {
-        require(newAddress != address(0), "Zero address");
-        tngToken = IERC20(newAddress);
     }
 
     // Update claim percentage. Timestamp must match with _claimableTime
@@ -213,12 +196,4 @@ contract Distribution is Ownable {
         IERC20(_token).transfer(_to, _amount);
     }
 
-	function clearStuckBalance() external onlyOwner {
-        uint256 balance = address(this).balance;
-        payable(owner()).transfer(balance);
-    }
-    
-	receive() external payable {}
-
-    event Claimed(address account, uint256 tokenQuantity);
 }

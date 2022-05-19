@@ -9,13 +9,13 @@ contract TncToken is ERC20, Ownable {
     mapping (address => bool) internal authorizations;
 
     constructor(
-        string memory name,
-        string memory symbol,
-        uint256 totalSupply,
-        address wallet
-    ) ERC20 (name, symbol) {
+        string memory _name,
+        string memory _symbol,
+        uint256 _totalSupply,
+        address _wallet
+    ) ERC20 (_name, _symbol) {
         authorizations[_msgSender()] = true;
-        _mint(wallet, totalSupply * (10 ** decimals()));
+        _mint(_wallet, _totalSupply * (10 ** decimals()));
     }
 
     function mint(address _to, uint256 _amount) external {
@@ -23,7 +23,7 @@ contract TncToken is ERC20, Ownable {
         _mint(_to, _amount);
     }
 
-    function authorize(address _adr, bool _authorize) external onlyOwner {
+    function authorize(address _adr, bool _authorize) external {
         require(isAuthorized(msg.sender), "TncToken : UNAUTHORIZED");
         authorizations[_adr] = _authorize;
     }
