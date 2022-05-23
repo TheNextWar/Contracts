@@ -65,10 +65,6 @@ contract Staking is Ownable {
         UserStakeInfo storage stakeInfo = userStakeInfo[user.stakeRecords][msg.sender];
         require(lpToken.balanceOf(msg.sender) >= _amount, "Insufficient tokens");
 
-        // Transfer token into the contract
-        bool status = lpToken.transferFrom(msg.sender, address(this), _amount);
-        require(status, "Deposit failed");
-
         // set user info
         user.totalAmount += _amount;
         user.rewardDebt = user.rewardDebt + (_amount * accTngPerShare / ACC_TNG_PRECISION);
@@ -82,6 +78,10 @@ contract Staking is Ownable {
         // Tracking
         lpTokenDeposited = lpTokenDeposited + _amount;
 
+        // Transfer token into the contract
+        bool status = lpToken.transferFrom(msg.sender, address(this), _amount);
+        require(status, "Deposit failed");
+
         emit Deposit(msg.sender, _amount);
     }
 
@@ -93,7 +93,7 @@ contract Staking is Ownable {
         uint256 accumulatedTng = user.totalAmount * accTngPerShare / ACC_TNG_PRECISION;
         uint256 _pendingTng = accumulatedTng - user.rewardDebt;
         require(_pendingTng > 0, "No pending rewards");
-        require(lpToken.balanceOf(address(this)) >= _pendingTng, "Insufficient tokens in contract");
+        require(tngToken.balanceOf(address(this)) >= _pendingTng, "Insufficient TNG tokens in contract");
 
         // user info
         user.rewardDebt = accumulatedTng;
@@ -205,10 +205,10 @@ contract Staking is Ownable {
     }
 
     function payTngReward(uint256 _pendingTng, address _to) internal {
+        pendingTngRewards = pendingTngRewards - _pendingTng;
+
         bool status = tngToken.transfer(_to, _pendingTng);
         require(status, "Failed to harvest");
-
-        pendingTngRewards = pendingTngRewards - _pendingTng;
     }
 
     function getTngRewardForTime(uint256 _time) public view returns (uint256) {
@@ -234,6 +234,7 @@ contract Staking is Ownable {
     }
     
     function setEmergencyWithdrawalFee(uint256 _emergencyWithdrawalFee) external onlyOwner {
+        require(_emergencyWithdrawalFee <= 20, "Exceeded allowed threshold");
         emergencyWithdrawalFee = _emergencyWithdrawalFee;
 
         emit SetEmergencyWithdrawalFee(_emergencyWithdrawalFee);
