@@ -2,7 +2,7 @@ const contract = artifacts.require("TngToken");
 
 module.exports = function(deployer, network, accounts) {
 
-  const name = "THE NEXT WAR GEM";
+  const name = "THE NEXT WORLD GEM";
   const symbol = "TNG";
   const totalSupply = 5000000000;
 
